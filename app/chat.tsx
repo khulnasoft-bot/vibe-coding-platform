@@ -65,13 +65,15 @@ export function Chat({ className, initialSandboxId }: Props) {
   )
 
   return (
-    <Panel className={className}>
+    <Panel className={className} role="region" aria-label="Chat Panel">
       <PanelHeader>
         <div className="flex items-center font-mono font-semibold uppercase">
-          <MessageCircleIcon className="mr-2 w-4" />
+          <MessageCircleIcon className="mr-2 w-4" aria-hidden="true" />
           Chat
         </div>
-        <div className="ml-auto font-mono text-xs opacity-50">[{status}]</div>
+        <div className="ml-auto font-mono text-xs opacity-50" aria-live="polite">
+          [{status}]
+        </div>
       </PanelHeader>
 
       {/* Messages Area */}
@@ -81,12 +83,21 @@ export function Chat({ className, initialSandboxId }: Props) {
             <p className="flex items-center font-semibold">
               Click and try one of these prompts:
             </p>
-            <ul className="p-4 space-y-1 text-center">
+            <ul className="p-4 space-y-1 text-center" role="listbox" aria-label="Sample prompts">
               {TEST_PROMPTS.map((prompt, idx) => (
                 <li
                   key={idx}
                   className="px-4 py-2 rounded-sm border border-dashed shadow-sm cursor-pointer border-border hover:bg-secondary/50 hover:text-primary"
                   onClick={() => validateAndSubmitMessage(prompt)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      validateAndSubmitMessage(prompt)
+                    }
+                  }}
+                  role="option"
+                  tabIndex={0}
+                  aria-label={`Try prompt: ${prompt}`}
                 >
                   {prompt}
                 </li>
@@ -95,7 +106,7 @@ export function Chat({ className, initialSandboxId }: Props) {
           </div>
         </div>
       ) : (
-        <Conversation className="relative w-full">
+        <Conversation className="relative w-full" role="log" aria-label="Chat messages">
           <ConversationContent className="space-y-4">
             {messages.map((message) => (
               <Message key={message.id} message={message} />
@@ -111,6 +122,7 @@ export function Chat({ className, initialSandboxId }: Props) {
           event.preventDefault()
           validateAndSubmitMessage(input)
         }}
+        aria-label="Send message form"
       >
         <Settings />
         <ModelSelector />
@@ -120,9 +132,14 @@ export function Chat({ className, initialSandboxId }: Props) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
           value={input}
+          aria-label="Message input"
         />
-        <Button type="submit" disabled={status !== 'ready' || !input.trim()}>
-        <SendIcon className="w-4 h-4" />
+        <Button
+          type="submit"
+          disabled={status !== 'ready' || !input.trim()}
+          aria-label="Send message"
+        >
+          <SendIcon className="w-4 h-4" aria-hidden="true" />
         </Button>
       </form>
     </Panel>

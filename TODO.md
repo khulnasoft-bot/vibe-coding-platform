@@ -71,10 +71,10 @@
 - **Files**: `ai/constants.ts`, `app/api/models/route.tsx`, `ai/prompts.ts`
 
 ### 10. Polish Production Readiness
-- [ ] Add environment variable documentation
-- [ ] Add deployment guidance
-- [ ] Optimize bundle size for large sandbox states
-- [ ] Add accessibility improvements for workspace UI
+- [x] Add environment variable documentation
+- [x] Add deployment guidance
+- [x] Optimize bundle size for large sandbox states
+- [x] Add accessibility improvements for workspace UI
 - **Files**: `README.md`, `app/page.tsx`, general accessibility audit
 
 ---

@@ -38,11 +38,25 @@ export const FileExplorer = memo(function FileExplorer({
     setFs(fileTree)
   }, [fileTree])
 
-  const handleSelectFile = useCallback((node: FileNode) => {
+  const selectFile = useCallback((node: FileNode) => {
     if (node.type === 'file') {
       setSelected(node)
     }
   }, [])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent, node: FileNode) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        if (node.type === 'folder') {
+          toggleFolder(node.path)
+        } else {
+          selectFile(node)
+        }
+      }
+    },
+    [toggleFolder, selectFile]
+  )
 
   const startEditing = useCallback(
     (path: string, currentContent: string) => {
@@ -90,15 +104,17 @@ export const FileExplorer = memo(function FileExplorer({
           selected={selected}
           onToggleFolder={toggleFolder}
           onSelectFile={selectFile}
+          onStartEditing={startEditing}
           renderFileTree={renderFileTree}
+          onKeyDown={(e) => handleKeyDown(e, node)}
         />
       ))
     },
-    [selected, toggleFolder, selectFile]
+    [selected, toggleFolder, selectFile, startEditing, handleKeyDown]
   )
 
   return (
-    <Panel className={className}>
+    <Panel className={className} role="region" aria-label="File Explorer">
       <PanelHeader>
         <FileIcon className="w-4 mr-2" />
         <span className="font-mono uppercase font-semibold">
@@ -117,13 +133,14 @@ export const FileExplorer = memo(function FileExplorer({
             placeholder="Search files..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search files"
           />
         </div>
       </div>
 
       <div className="flex text-sm h-[calc(100%-5rem-1px)]">
         <ScrollArea className="w-1/4 border-r border-primary/18 flex-shrink-0">
-          <div>{renderFileTree(filteredTree)}</div>
+          <div role="tree" aria-label="File tree">{renderFileTree(filteredTree)}</div>
         </ScrollArea>
         {sandboxId && !disabled && (
           <div className="w-3/4 flex-shrink-0">
@@ -150,6 +167,7 @@ const FileTreeNode = memo(function FileTreeNode({
   onToggleFolder,
   onSelectFile,
   onStartEditing,
+  onKeyDown,
   renderFileTree,
 }: {
   node: FileNode
@@ -158,6 +176,7 @@ const FileTreeNode = memo(function FileTreeNode({
   onToggleFolder: (path: string) => void
   onSelectFile: (node: FileNode) => void
   onStartEditing?: (path: string, content: string) => void
+  onKeyDown?: (e: React.KeyboardEvent, node: FileNode) => void
   renderFileTree: (nodes: FileNode[], depth: number) => React.ReactNode
 }) {
   const handleClick = useCallback(() => {
@@ -176,37 +195,45 @@ const FileTreeNode = memo(function FileTreeNode({
     []
   )
 
+  const isSelected = selected?.path === node.path
+
   return (
     <div>
       <div
         className={cn(
-          `flex items-center py-0.5 px-1 hover:bg-gray-100 cursor-pointer`,
-          { 'bg-gray-200/80': selected?.path === node.path }
+          `flex items-center py-0.5 px-1 hover:bg-gray-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary`,
+          { 'bg-gray-200/80': isSelected }
         )}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onKeyDown={(e) => onKeyDown?.(e, node)}
+        role="treeitem"
+        tabIndex={0}
+        aria-expanded={node.type === 'folder' ? node.expanded : undefined}
+        aria-selected={isSelected}
+        aria-label={`${node.type === 'folder' ? 'Folder' : 'File'}: ${node.name}`}
       >
         {node.type === 'folder' ? (
           <>
             {node.expanded ? (
-              <ChevronDownIcon className="w-4 mr-1" />
+              <ChevronDownIcon className="w-4 mr-1" aria-hidden="true" />
             ) : (
-              <ChevronRightIcon className="w-4 mr-1" />
+              <ChevronRightIcon className="w-4 mr-1" aria-hidden="true" />
             )}
-            <FolderIcon className="w-4 mr-2" />
+            <FolderIcon className="w-4 mr-2" aria-hidden="true" />
           </>
         ) : (
           <>
             <div className="w-4 mr-1" />
-            <FileIcon className="w-4 mr-2 " />
+            <FileIcon className="w-4 mr-2" aria-hidden="true" />
           </>
         )}
-        <span className="">{node.name}</span>
+        <span className="truncate">{node.name}</span>
       </div>
 
       {node.type === 'folder' && node.expanded && node.children && (
-        <div>{renderFileTree(node.children, depth + 1)}</div>
+        <div role="group">{renderFileTree(node.children, depth + 1)}</div>
       )}
     </div>
   )

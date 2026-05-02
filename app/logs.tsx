@@ -8,14 +8,14 @@ import { TerminalIcon } from 'lucide-react'
 
 export function Logs() {
   return (
-    <Panel className="flex flex-col">
+    <Panel className="flex flex-col" role="region" aria-label="Logs Panel">
       <PanelHeader>
-        <TerminalIcon className="w-4 mr-2" />
+        <TerminalIcon className="w-4 mr-2" aria-hidden="true" />
         <span className="font-mono uppercase font-semibold">Logs</span>
       </PanelHeader>
       <ErrorSummaryPanel />
-      <ScrollArea className="flex-1">
-        <Logs />
+      <ScrollArea className="flex-1" tabIndex={0}>
+        <Logs aria-live="polite" />
       </ScrollArea>
     </Panel>
   )
