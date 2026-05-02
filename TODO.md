@@ -65,9 +65,9 @@
 ## Low Priority
 
 ### 9. Expand AI/Tooling Capabilities
-- [ ] Add support for additional provider models
-- [ ] Add Azure/OpenAI endpoint support
-- [ ] Improve tool prompts for self-diagnosis of sandbox failures
+- [x] Add support for additional provider models
+- [x] Add Azure/OpenAI endpoint support
+- [x] Improve tool prompts for self-diagnosis of sandbox failures
 - **Files**: `ai/constants.ts`, `app/api/models/route.tsx`, `ai/prompts.ts`
 
 ### 10. Polish Production Readiness
