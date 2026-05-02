@@ -31,45 +31,48 @@ export const FileExplorer = memo(function FileExplorer({
   const [selected, setSelected] = useState<FileNode | null>(null)
   const [fs, setFs] = useState<FileNode[]>(fileTree)
   const [searchQuery, setSearchQuery] = useState('')
+  const [editingPath, setEditingPath] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
 
   useEffect(() => {
     setFs(fileTree)
   }, [fileTree])
 
-  const filteredTree = useMemo(() => {
-    if (!searchQuery) return fs
-    const query = searchQuery.toLowerCase()
-    const filterNodes = (nodes: FileNode[]): FileNode[] => {
-      return nodes.reduce((acc, node) => {
-        if (node.name.toLowerCase().includes(query)) {
-          acc.push(node)
-        } else if (node.children) {
-          const filteredChildren = filterNodes(node.children)
-          if (filteredChildren.length > 0) {
-            acc.push({ ...node, children: filteredChildren, expanded: true })
-          }
-        }
-        return acc
-      }, [] as FileNode[])
+  const handleSelectFile = useCallback((node: FileNode) => {
+    if (node.type === 'file') {
+      setSelected(node)
     }
-    return filterNodes(fs)
-  }, [fs, searchQuery])
-
-  const toggleFolder = useCallback((path: string) => {
-    setFs((prev) => {
-      const updateNode = (nodes: FileNode[]): FileNode[] =>
-        nodes.map((node) => {
-          if (node.path === path && node.type === 'folder') {
-            return { ...node, expanded: !node.expanded }
-          } else if (node.children) {
-            return { ...node, children: updateNode(node.children) }
-          } else {
-            return node
-          }
-        })
-      return updateNode(prev)
-    })
   }, [])
+
+  const startEditing = useCallback(
+    (path: string, currentContent: string) => {
+      setEditingPath(path)
+      setEditContent(currentContent)
+    },
+    []
+  )
+
+  const saveEdit = useCallback(
+    async (sandboxId: string) => {
+      if (!editingPath) return
+      try {
+        const response = await fetch(
+          `/api/sandboxes/${sandboxId}/files?path=${encodeURIComponent(editingPath)}`,
+          {
+            method: 'PUT',
+            body: editContent,
+          }
+        )
+        if (response.ok) {
+          setEditingPath(null)
+          setEditContent('')
+        }
+      } catch (error) {
+        console.error('Failed to save file:', error)
+      }
+    },
+    [editingPath, editContent]
+  )
 
   const selectFile = useCallback((node: FileNode) => {
     if (node.type === 'file') {
@@ -122,14 +125,17 @@ export const FileExplorer = memo(function FileExplorer({
         <ScrollArea className="w-1/4 border-r border-primary/18 flex-shrink-0">
           <div>{renderFileTree(filteredTree)}</div>
         </ScrollArea>
-        {selected && sandboxId && !disabled && (
-          <ScrollArea className="w-3/4 flex-shrink-0">
-            <FileContent
+        {sandboxId && !disabled && (
+          <div className="w-3/4 flex-shrink-0">
+            <TabbedFileViewer
               sandboxId={sandboxId}
-              path={selected.path.substring(1)}
+              selectedPath={selected?.path}
+              onSelectPath={(path) => {
+                const node = findNodeByPath(fileTree, path)
+                if (node) setSelected(node)
+              }}
             />
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
         )}
       </div>
     </Panel>
@@ -143,6 +149,7 @@ const FileTreeNode = memo(function FileTreeNode({
   selected,
   onToggleFolder,
   onSelectFile,
+  onStartEditing,
   renderFileTree,
 }: {
   node: FileNode
@@ -150,6 +157,7 @@ const FileTreeNode = memo(function FileTreeNode({
   selected: FileNode | null
   onToggleFolder: (path: string) => void
   onSelectFile: (node: FileNode) => void
+  onStartEditing?: (path: string, content: string) => void
   renderFileTree: (nodes: FileNode[], depth: number) => React.ReactNode
 }) {
   const handleClick = useCallback(() => {
@@ -160,6 +168,14 @@ const FileTreeNode = memo(function FileTreeNode({
     }
   }, [node, onToggleFolder, onSelectFile])
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      // Context menu logic would go here
+    },
+    []
+  )
+
   return (
     <div>
       <div
@@ -169,6 +185,7 @@ const FileTreeNode = memo(function FileTreeNode({
         )}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
       >
         {node.type === 'folder' ? (
           <>

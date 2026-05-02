@@ -41,17 +41,17 @@
 - **Files**: `app/page.tsx`, `components/`
 
 ### 6. Add Richer Preview and Git-like Diffs
-- [ ] Show generated file diffs before writing to sandbox
-- [ ] Add "preview changes" controls
-- [ ] Add "accept/reject" controls for generated code
+- [x] Show generated file diffs before writing to sandbox
+- [x] Add "preview changes" controls
+- [x] Add "accept/reject" controls for generated code
 - **Files**: `components/`, `ai/tools/generate-files.ts`
 
 ### 7. Enhance File Explorer Functionality
-- [ ] Support in-place file editing
+- [x] Support in-place file editing
 - [x] Add file search within explorer
-- [ ] Add directory context menus
+- [x] Add directory context menus
 - [x] Add syntax-aware code viewing
-- [ ] Add tabbed file navigation
+- [x] Add tabbed file navigation
 - **Files**: `components/file-explorer/`
 
 ### 8. Increase Observability
