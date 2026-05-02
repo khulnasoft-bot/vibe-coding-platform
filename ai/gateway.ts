@@ -1,4 +1,4 @@
-import { createGatewayProvider } from '@ai-sdk/gateway'
+import { createAzureProvider, createGatewayProvider } from '@ai-sdk/gateway'
 import { Models } from './constants'
 import type { JSONValue } from 'ai'
 import type { OpenAIResponsesProviderOptions } from '@ai-sdk/openai'
@@ -8,7 +8,12 @@ const gateway = createGatewayProvider({
   baseURL: process.env.AI_GATEWAY_BASE_URL,
 })
 
-export interface ModelOptions {
+const azure = createAzureProvider({
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
+  baseURL: process.env.AZURE_OPENAI_ENDPOINT,
+})
+
+interface ModelOptions {
   model: LanguageModelV3
   providerOptions?: Record<string, Record<string, JSONValue>>
   headers?: Record<string, string>
@@ -18,6 +23,14 @@ export function getModelOptions(
   modelId: string,
   options?: { reasoningEffort?: 'low' | 'medium' | 'high' }
 ): ModelOptions {
+  // Handle Azure OpenAI
+  if (modelId.includes('azure')) {
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'default'
+    return {
+      model: azure(deployment),
+    }
+  }
+
   if (modelId === Models.OpenAIGPT53Codex) {
     return {
       model: gateway(modelId),
@@ -51,3 +64,4 @@ export function getModelOptions(
     model: gateway(modelId),
   }
 }
+

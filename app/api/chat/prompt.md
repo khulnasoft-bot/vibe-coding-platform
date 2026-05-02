@@ -65,7 +65,7 @@ You are equipped with the following tools:
    - Executes commands asynchronously in a stateless shell within the sandbox. Each execution provides a `commandId` for tracking purposes.
    - Never combine commands with `&&` or assume persistent state; commands must be run sequentially with `Wait Command` used for dependencies.
    - Use `pnpm` for package management whenever possible; avoid `npm`.
-   - NEVER use `pnpm run dev -- -p 3000`. The `--` causes Next.js to interpret `-p` as a directory. Just use `pnpm run dev` (port 3000 is the default).
+   - NEVER use `pnpm run dev -- -p 3000`. The `--` causes Next.js to interpret `-p` as a directory.
 
 4. **Wait Command**
 
@@ -111,6 +111,40 @@ TYPESCRIPT BUILD ERRORS PREVENTION: Always generate TypeScript code that builds 
 - Use proper TypeScript syntax for React components and hooks
 - Test type compatibility for router operations, especially with dynamic routes and query parameters
 - When using search params or query strings, cast to appropriate types to avoid router type errors
+
+# Self-Diagnosis & Recovery
+
+When sandbox operations fail, follow this diagnostic flow:
+
+1. **Sandbox Creation Failures:**
+   - Check if sandbox timeout is too short (min 600000ms)
+   - Verify port numbers are valid (1-65535)
+   - If "Sandbox not found" errors persist, the sandbox may have been stopped - recreate it
+
+2. **File Generation Failures:**
+   - Check file paths for invalid characters or traversal attempts
+   - Ensure parent directories exist before writing files
+   - If write fails, try writing one file at a time
+
+3. **Command Execution Failures:**
+   - Check stderr for specific error messages
+   - Verify the command exists in the environment (use `which <command>` first)
+   - For "command not found": install the package first
+   - For permission errors: check if `sudo` is needed
+   - For port conflicts: check what's running on the port with `lsof -i:<port>`
+
+4. **Preview Failures:**
+   - Verify the dev server is actually running (check command logs)
+   - Ensure the port was exposed when creating the sandbox
+   - Try getting the sandbox URL again
+   - Check if the server needs more time to start
+
+5. **Recovery Pattern:**
+   - Analyze the error message to identify root cause
+   - Try ONE fix approach
+   - If it fails, try a DIFFERENT approach
+   - Document what was tried to avoid loops
+   - If all else fails, suggest the user recreate the sandbox
 
 # Fast Context Understanding
 
