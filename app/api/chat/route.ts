@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server'
 import { getModelOptions } from '@/ai/gateway'
 import { checkBotId } from 'botid/server'
 import { tools } from '@/ai/tools'
+import { checkRateLimit, getRemainingRequests } from '@/lib/rate-limit'
 import prompt from './prompt.md'
 
 interface BodyData {
@@ -19,7 +20,41 @@ interface BodyData {
   reasoningEffort?: 'low' | 'medium'
 }
 
+function getClientIp(request: Request): string {
+  // Check common headers for IP address
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) {
+    return forwarded.split(',')[0].trim()
+  }
+
+  const realIp = request.headers.get('x-real-ip')
+  if (realIp) {
+    return realIp.trim()
+  }
+
+  return 'unknown'
+}
+
 export async function POST(req: Request) {
+  const clientIp = getClientIp(req)
+
+  // Check rate limit: 30 requests per minute per IP
+  if (!checkRateLimit(`chat:${clientIp}`, { maxRequests: 30, windowMs: 60000 })) {
+    return NextResponse.json(
+      {
+        error: 'Rate limit exceeded. Please try again later.',
+        retryAfter: 60,
+      },
+      {
+        headers: {
+          'Retry-After': '60',
+          'X-RateLimit-Remaining': '0',
+        },
+        status: 429,
+      }
+    )
+  }
+
   const [checkResult, { messages, modelId = DEFAULT_MODEL, reasoningEffort }] =
     await Promise.all([checkBotId(), req.json() as Promise<BodyData>])
 
@@ -33,6 +68,10 @@ export async function POST(req: Request) {
       { status: 400 }
     )
   }
+
+  const remaining = getRemainingRequests(`chat:${clientIp}`, {
+    maxRequests: 30,
+  })
 
   return createUIMessageStreamResponse({
     stream: createUIMessageStream({
@@ -81,5 +120,8 @@ export async function POST(req: Request) {
         )
       },
     }),
-  });
+    headers: {
+      'X-RateLimit-Remaining': String(remaining),
+    },
+  } satisfies ResponseInit)
 }
