@@ -1,7 +1,8 @@
 import type { UIMessageStreamWriter, UIMessage } from 'ai'
 import type { DataPart } from '../messages/data-parts'
 import { Sandbox } from '@vercel/sandbox'
-import { getRichError } from './get-rich-error'
+import { getRichError, withRetry } from './get-rich-error'
+import { validatePort } from '@/lib/security'
 import { tool } from 'ai'
 import description from './create-sandbox.md'
 import z from 'zod/v3'
@@ -31,6 +32,21 @@ export const createSandbox = ({ writer }: Params) =>
         ),
     }),
     execute: async ({ timeout, ports }, { toolCallId }) => {
+      // Validate ports
+      if (ports) {
+        for (const port of ports) {
+          if (!validatePort(port)) {
+            const error = { message: `Invalid port: ${port}. Port must be between 1 and 65535.` }
+            writer.write({
+              id: toolCallId,
+              type: 'data-create-sandbox',
+              data: { error, status: 'error' },
+            })
+            return error.message
+          }
+        }
+      }
+
       writer.write({
         id: toolCallId,
         type: 'data-create-sandbox',
@@ -38,10 +54,12 @@ export const createSandbox = ({ writer }: Params) =>
       })
 
       try {
-        const sandbox = await Sandbox.create({
-          timeout: timeout ?? 600000,
-          ports,
-        })
+        const sandbox = await withRetry(() =>
+          Sandbox.create({
+            timeout: timeout ?? 600000,
+            ports,
+          })
+        )
 
         writer.write({
           id: toolCallId,

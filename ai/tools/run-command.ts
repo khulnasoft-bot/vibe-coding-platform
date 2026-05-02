@@ -1,7 +1,8 @@
 import type { UIMessageStreamWriter, UIMessage } from 'ai'
 import type { DataPart } from '../messages/data-parts'
 import { Command, Sandbox } from '@vercel/sandbox'
-import { getRichError } from './get-rich-error'
+import { getRichError, withRetry } from './get-rich-error'
+import { validateSandboxId, validateArgs, sanitizeArgument } from '@/lib/security'
 import { tool } from 'ai'
 import description from './run-command.md'
 import z from 'zod/v3'
@@ -42,16 +43,70 @@ export const runCommand = ({ writer }: Params) =>
       { sandboxId, command, sudo, wait, args = [] },
       { toolCallId }
     ) => {
+      // Validate sandbox ID
+      if (!validateSandboxId(sandboxId)) {
+        const error = { message: `Invalid sandbox ID format: ${sandboxId}` }
+        writer.write({
+          id: toolCallId,
+          type: 'data-run-command',
+          data: {
+            sandboxId,
+            command,
+            args,
+            error,
+            status: 'error',
+          },
+        })
+        return error.message
+      }
+
+      // Validate args
+      if (!validateArgs(args)) {
+        const error = { message: 'Invalid command arguments' }
+        writer.write({
+          id: toolCallId,
+          type: 'data-run-command',
+          data: {
+            sandboxId,
+            command,
+            args,
+            error,
+            status: 'error',
+          },
+        })
+        return error.message
+      }
+
+      // Sanitize arguments
+      const sanitizedArgs = args.map(sanitizeArgument)
+
+      // Validate command
+      if (!command || command.length > 100 || command.includes('\0')) {
+        const error = { message: 'Invalid command' }
+        writer.write({
+          id: toolCallId,
+          type: 'data-run-command',
+          data: {
+            sandboxId,
+            command,
+            args,
+            error,
+            status: 'error',
+          },
+        })
+        return error.message
+      }
+
       writer.write({
         id: toolCallId,
         type: 'data-run-command',
-        data: { sandboxId, command, args, status: 'executing' },
+        data: { sandboxId, command, args: sanitizedArgs, status: 'executing' },
       })
 
       let sandbox: Sandbox | null = null
 
       try {
-        sandbox = await Sandbox.get({ sandboxId })
+        sandbox = await withRetry(() => Sandbox.get({ sandboxId }))
       } catch (error) {
         const richError = getRichError({
           action: 'get sandbox by id',
@@ -65,7 +120,7 @@ export const runCommand = ({ writer }: Params) =>
           data: {
             sandboxId,
             command,
-            args,
+            args: sanitizedArgs,
             error: richError.error,
             status: 'error',
           },
@@ -77,12 +132,14 @@ export const runCommand = ({ writer }: Params) =>
       let cmd: Command | null = null
 
       try {
-        cmd = await sandbox.runCommand({
-          detached: true,
-          cmd: command,
-          args,
-          sudo,
-        })
+        cmd = await withRetry(() =>
+          sandbox!.runCommand({
+            detached: true,
+            cmd: command,
+            args: sanitizedArgs,
+            sudo,
+          })
+        )
       } catch (error) {
         const richError = getRichError({
           action: 'run command in sandbox',
@@ -96,7 +153,7 @@ export const runCommand = ({ writer }: Params) =>
           data: {
             sandboxId,
             command,
-            args,
+            args: sanitizedArgs,
             error: richError.error,
             status: 'error',
           },
@@ -112,7 +169,7 @@ export const runCommand = ({ writer }: Params) =>
           sandboxId,
           commandId: cmd.cmdId,
           command,
-          args,
+          args: sanitizedArgs,
           status: 'executing',
         },
       })
@@ -125,12 +182,12 @@ export const runCommand = ({ writer }: Params) =>
             sandboxId,
             commandId: cmd.cmdId,
             command,
-            args,
+            args: sanitizedArgs,
             status: 'running',
           },
         })
 
-        return `The command \`${command} ${args.join(
+        return `The command \`${command} ${sanitizedArgs.join(
           ' '
         )}\` has been started in the background in the sandbox with ID \`${sandboxId}\` with the commandId ${
           cmd.cmdId
@@ -144,7 +201,7 @@ export const runCommand = ({ writer }: Params) =>
           sandboxId,
           commandId: cmd.cmdId,
           command,
-          args,
+          args: sanitizedArgs,
           status: 'waiting',
         },
       })
@@ -163,14 +220,14 @@ export const runCommand = ({ writer }: Params) =>
             sandboxId,
             commandId: cmd.cmdId,
             command,
-            args,
+            args: sanitizedArgs,
             exitCode: done.exitCode,
             status: 'done',
           },
         })
 
         return (
-          `The command \`${command} ${args.join(
+          `The command \`${command} ${sanitizedArgs.join(
             ' '
           )}\` has finished with exit code ${done.exitCode}.` +
           `Stdout of the command was: \n` +
@@ -192,7 +249,7 @@ export const runCommand = ({ writer }: Params) =>
             sandboxId,
             commandId: cmd.cmdId,
             command,
-            args,
+            args: sanitizedArgs,
             error: richError.error,
             status: 'error',
           },

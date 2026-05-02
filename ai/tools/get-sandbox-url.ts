@@ -1,6 +1,8 @@
 import type { UIMessageStreamWriter, UIMessage } from 'ai'
 import type { DataPart } from '../messages/data-parts'
 import { Sandbox } from '@vercel/sandbox'
+import { withRetry } from './get-rich-error'
+import { validateSandboxId, validatePort } from '@/lib/security'
 import { tool } from 'ai'
 import description from './get-sandbox-url.md'
 import z from 'zod/v3'
@@ -25,13 +27,35 @@ export const getSandboxURL = ({ writer }: Params) =>
         ),
     }),
     execute: async ({ sandboxId, port }, { toolCallId }) => {
+      // Validate sandbox ID
+      if (!validateSandboxId(sandboxId)) {
+        const error = { message: `Invalid sandbox ID format: ${sandboxId}` }
+        writer.write({
+          id: toolCallId,
+          type: 'data-get-sandbox-url',
+          data: { error, status: 'error' },
+        })
+        return error.message
+      }
+
+      // Validate port
+      if (!validatePort(port)) {
+        const error = { message: `Invalid port: ${port}. Port must be between 1 and 65535.` }
+        writer.write({
+          id: toolCallId,
+          type: 'data-get-sandbox-url',
+          data: { error, status: 'error' },
+        })
+        return error.message
+      }
+
       writer.write({
         id: toolCallId,
         type: 'data-get-sandbox-url',
         data: { status: 'loading' },
       })
 
-      const sandbox = await Sandbox.get({ sandboxId })
+      const sandbox = await withRetry(() => Sandbox.get({ sandboxId }))
       const url = sandbox.domain(port)
 
       writer.write({

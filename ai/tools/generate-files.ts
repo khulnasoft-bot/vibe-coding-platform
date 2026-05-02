@@ -2,8 +2,9 @@ import type { UIMessageStreamWriter, UIMessage } from 'ai'
 import type { DataPart } from '../messages/data-parts'
 import { Sandbox } from '@vercel/sandbox'
 import { getContents, type File } from './generate-files/get-contents'
-import { getRichError } from './get-rich-error'
+import { getRichError, withRetry } from './get-rich-error'
 import { getWriteFiles } from './generate-files/get-write-files'
+import { validateSandboxId, validateFilePath } from '@/lib/security'
 import { tool } from 'ai'
 import description from './generate-files.md'
 import z from 'zod/v3'
@@ -21,6 +22,30 @@ export const generateFiles = ({ writer, modelId }: Params) =>
       paths: z.array(z.string()),
     }),
     execute: async ({ sandboxId, paths }, { toolCallId, messages }) => {
+      // Validate sandbox ID
+      if (!validateSandboxId(sandboxId)) {
+        const error = { message: `Invalid sandbox ID format: ${sandboxId}` }
+        writer.write({
+          id: toolCallId,
+          type: 'data-generating-files',
+          data: { error, paths: [], status: 'error' },
+        })
+        return error.message
+      }
+
+      // Validate file paths
+      for (const path of paths) {
+        if (!validateFilePath(path)) {
+          const error = { message: `Invalid file path: ${path}` }
+          writer.write({
+            id: toolCallId,
+            type: 'data-generating-files',
+            data: { error, paths: [], status: 'error' },
+          })
+          return error.message
+        }
+      }
+
       writer.write({
         id: toolCallId,
         type: 'data-generating-files',
@@ -30,7 +55,7 @@ export const generateFiles = ({ writer, modelId }: Params) =>
       let sandbox: Sandbox | null = null
 
       try {
-        sandbox = await Sandbox.get({ sandboxId })
+        sandbox = await withRetry(() => Sandbox.get({ sandboxId }))
       } catch (error) {
         const richError = getRichError({
           action: 'get sandbox by id',
@@ -54,6 +79,19 @@ export const generateFiles = ({ writer, modelId }: Params) =>
       try {
         for await (const chunk of iterator) {
           if (chunk.files.length > 0) {
+            // Validate generated file paths
+            for (const file of chunk.files) {
+              if (!validateFilePath(file.path)) {
+                const error = { message: `Invalid generated file path: ${file.path}` }
+                writer.write({
+                  id: toolCallId,
+                  type: 'data-generating-files',
+                  data: { error, paths: [], status: 'error' },
+                })
+                return error.message
+              }
+            }
+
             const error = await writeFiles(chunk)
             if (error) {
               return error
