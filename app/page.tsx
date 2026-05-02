@@ -9,6 +9,8 @@ import { Welcome } from '@/components/modals/welcome'
 import { cookies } from 'next/headers'
 import { getHorizontal, getVertical } from '@/components/layout/sizing'
 import { hideBanner } from '@/app/actions'
+import { OnboardingTour } from '@/components/ui/tooltip'
+import { useOnboarding } from '@/lib/onboarding'
 
 interface InitialState {
   sandboxId?: string
@@ -41,6 +43,7 @@ export default async function Page() {
   return (
     <>
       <Welcome defaultOpen={banner} onDismissAction={hideBanner} />
+      <OnboardingTourWrapper initialSandboxId={initialSandboxId} />
       <div className="flex flex-col h-screen max-h-screen overflow-hidden p-2 space-x-2">
         <Header className="flex items-center w-full" />
         <ul className="flex space-x-5 font-mono text-sm tracking-tight px-1 py-2 md:hidden">
@@ -93,3 +96,31 @@ export default async function Page() {
     </>
   )
 }
+
+function OnboardingTourWrapper({ initialSandboxId }: { initialSandboxId?: string }) {
+  const { showOnboarding, completeOnboarding } = useOnboarding()
+
+  const steps = [
+    {
+      target: 'chat',
+      content: 'Chat with AI to generate code, run commands, and build applications.',
+    },
+    {
+      target: 'preview',
+      content: 'See live preview of your application running in the sandbox.',
+    },
+    {
+      target: 'file-explorer',
+      content: 'Browse and view files generated in the sandbox filesystem.',
+    },
+    {
+      target: 'logs',
+      content: 'Monitor command execution logs and errors here.',
+    },
+  ]
+
+  if (!showOnboarding) return null
+
+  return <OnboardingTour steps={steps} onComplete={completeOnboarding} />
+}
+

@@ -1,3 +1,5 @@
+'use client'
+
 import { AutoFixErrors } from './auto-fix-errors'
 import { Button } from '@/components/ui/button'
 import {
@@ -7,6 +9,7 @@ import {
 } from '@/components/ui/popover'
 import { ReasoningEffort } from './reasoning-effort'
 import { SlidersVerticalIcon } from 'lucide-react'
+import { PortSettings } from './port-settings'
 
 export function Settings() {
   return (
@@ -20,6 +23,7 @@ export function Settings() {
         <div className="p-4 space-y-6">
           <AutoFixErrors />
           <ReasoningEffort />
+          <PortSettings />
         </div>
       </PopoverContent>
     </Popover>

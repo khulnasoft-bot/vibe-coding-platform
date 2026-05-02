@@ -5,6 +5,7 @@ import {
   ChevronDownIcon,
   FolderIcon,
   FileIcon,
+  SearchIcon,
 } from 'lucide-react'
 import { FileContent } from '@/components/file-explorer/file-content'
 import { Panel, PanelHeader } from '@/components/panels/panels'
@@ -29,10 +30,30 @@ export const FileExplorer = memo(function FileExplorer({
   const fileTree = useMemo(() => buildFileTree(paths), [paths])
   const [selected, setSelected] = useState<FileNode | null>(null)
   const [fs, setFs] = useState<FileNode[]>(fileTree)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     setFs(fileTree)
   }, [fileTree])
+
+  const filteredTree = useMemo(() => {
+    if (!searchQuery) return fs
+    const query = searchQuery.toLowerCase()
+    const filterNodes = (nodes: FileNode[]): FileNode[] => {
+      return nodes.reduce((acc, node) => {
+        if (node.name.toLowerCase().includes(query)) {
+          acc.push(node)
+        } else if (node.children) {
+          const filteredChildren = filterNodes(node.children)
+          if (filteredChildren.length > 0) {
+            acc.push({ ...node, children: filteredChildren, expanded: true })
+          }
+        }
+        return acc
+      }, [] as FileNode[])
+    }
+    return filterNodes(fs)
+  }, [fs, searchQuery])
 
   const toggleFolder = useCallback((path: string) => {
     setFs((prev) => {
@@ -85,9 +106,21 @@ export const FileExplorer = memo(function FileExplorer({
         )}
       </PanelHeader>
 
-      <div className="flex text-sm h-[calc(100%-2rem-1px)]">
+      <div className="p-2 border-b border-primary/18">
+        <div className="relative">
+          <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            className="w-full rounded border border-primary/18 bg-background pl-8 pr-2 py-1 text-sm"
+            placeholder="Search files..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="flex text-sm h-[calc(100%-5rem-1px)]">
         <ScrollArea className="w-1/4 border-r border-primary/18 flex-shrink-0">
-          <div>{renderFileTree(fs)}</div>
+          <div>{renderFileTree(filteredTree)}</div>
         </ScrollArea>
         {selected && sandboxId && !disabled && (
           <ScrollArea className="w-3/4 flex-shrink-0">
