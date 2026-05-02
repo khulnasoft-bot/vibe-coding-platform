@@ -24,14 +24,35 @@ import { useSandboxStore } from './state'
 interface Props {
   className: string
   modelId?: string
+  initialSandboxId?: string
 }
 
-export function Chat({ className }: Props) {
+export function Chat({ className, initialSandboxId }: Props) {
   const [input, setInput] = useLocalStorageValue('prompt-input')
   const { chat } = useSharedChatContext()
   const { modelId, reasoningEffort } = useSettings()
   const { messages, sendMessage, status } = useChat<ChatUIMessage>({ chat })
-  const { setChatStatus } = useSandboxStore()
+  const { setChatStatus, sandboxId, setSandboxId } = useSandboxStore()
+
+  useEffect(() => {
+    setChatStatus(status)
+  }, [status, setChatStatus])
+
+  useEffect(() => {
+    if (initialSandboxId && !sandboxId) {
+      setSandboxId(initialSandboxId)
+    }
+  }, [initialSandboxId, sandboxId, setSandboxId])
+
+  useEffect(() => {
+    if (sandboxId) {
+      fetch('/api/sandbox/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sandboxId, createdAt: Date.now() }),
+      }).catch(console.error)
+    }
+  }, [sandboxId])
 
   const validateAndSubmitMessage = useCallback(
     (text: string) => {
@@ -42,10 +63,6 @@ export function Chat({ className }: Props) {
     },
     [sendMessage, modelId, setInput, reasoningEffort]
   )
-
-  useEffect(() => {
-    setChatStatus(status)
-  }, [status, setChatStatus])
 
   return (
     <Panel className={className}>
